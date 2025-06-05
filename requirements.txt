@@ -3,3 +3,4 @@ django-environ
 psycopg2-binary
 django-log-request-id
 djangorestframework
+dependency-injector
