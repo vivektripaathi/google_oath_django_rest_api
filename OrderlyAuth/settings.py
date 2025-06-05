@@ -10,11 +10,21 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
+import logging.config
+
+import environ
+from django.utils.log import DEFAULT_LOGGING
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+env = environ.Env(
+    LOGLEVEL=(str, "INFO"),
+    DEBUG_SQL=(bool, False),
+)
+env.read_env(os.path.join(BASE_DIR, ".env"))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -40,6 +50,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'log_request_id.middleware.RequestIDMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -98,6 +109,64 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+
+####################################################
+####                  LOGGING                   ####
+####################################################
+
+# Disable Django's logging setup
+
+LOGGING_CONFIG = None
+LOGLEVEL = env("LOGLEVEL")
+
+
+__DJANGO_SERVER_LOGGING_CONFIG = DEFAULT_LOGGING["handlers"]["django.server"]
+__DJANGO_SERVER_LOGGING_CONFIG["filters"] = __DJANGO_SERVER_LOGGING_CONFIG.get(
+    "filters", []
+)
+__DJANGO_SERVER_LOGGING_CONFIG["filters"].append("request_id")
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "filters": {"request_id": {"()": "log_request_id.filters.RequestIDFilter"}},
+        "formatters": {
+            "default": {
+                # exact format is not important, this is the minimum information
+                "format": "%(asctime)s %(request_id)32s %(levelname).4s %(name)-12s %(message)s"
+            },
+            "django.server": DEFAULT_LOGGING["formatters"]["django.server"],
+        },
+        "handlers": {
+            # console logs to stderr
+            "console": {
+                "filters": ["request_id"],
+                "class": "logging.StreamHandler",
+                "formatter": "default",
+            },
+            "django.server": __DJANGO_SERVER_LOGGING_CONFIG,
+        },
+        "loggers": {
+            # default for all undefined Python modules
+            "": {"level": LOGLEVEL, "handlers": ["console"]}
+        },
+    }
+)
+
+# django-log-request-id settings
+LOG_REQUEST_ID_HEADER = "HTTP_X_REQUEST_ID"
+GENERATE_REQUEST_ID_IF_NOT_IN_HEADER = True
+# Send this header in response with request ID
+REQUEST_ID_RESPONSE_HEADER = "X_REQUEST_ID"
+# Print all requests to logs
+LOG_REQUESTS = True
+
+
+# for printing queries on terminal
+if env("DEBUG_SQL"):
+    log = logging.getLogger("django.db.backends")
+    log.setLevel(logging.DEBUG)
 
 
 # Internationalization
