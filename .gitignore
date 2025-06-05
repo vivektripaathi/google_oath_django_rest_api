@@ -1,0 +1,15 @@
+
+# Ds store file
+*.DS_Store
+*dump.rdb
+
+# Environments
+myenv/
+.env
+.venv
+env/
+venv/
+ENV/
+nenv/
+env.bak/
+venv.bak/
