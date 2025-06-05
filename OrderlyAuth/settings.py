@@ -23,6 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(
     LOGLEVEL=(str, "INFO"),
     DEBUG_SQL=(bool, False),
+    ATOMIC_REQUESTS=(bool, True),
 )
 env.read_env(os.path.join(BASE_DIR, ".env"))
 
@@ -86,11 +87,11 @@ WSGI_APPLICATION = 'OrderlyAuth.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        "ATOMIC_REQUESTS": env("ATOMIC_REQUESTS"),
     }
 }
-
+db_from_env = env.db(default="psql://postgres:postgres@localhost:5432/orderly_auth_db")
+DATABASES["default"].update(db_from_env)
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
