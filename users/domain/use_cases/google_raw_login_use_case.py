@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 from django.urls import reverse_lazy
 
 from core.utils import OrderlyAuthBaseModel
+from users.exceptions import ErrorObtainingAccessToken
 
 class GoogleAccessTokens(OrderlyAuthBaseModel):
     id_token: str
@@ -18,12 +19,14 @@ class GoogleAccessTokens(OrderlyAuthBaseModel):
         decoded_token = jwt.decode(jwt=self.id_token, options={"verify_signature": False})
         return decoded_token
 
+class GoogleTokensResponse(GoogleAccessTokens):
+    refresh_token: str
 
 # Reference: https://developers.google.com/identity/openid-connect/openid-connect#python
 class GoogleRawLoginUseCase:
     def __init__(self):
         self.APP_URL = settings.APP_URL
-        self.API_URI = reverse_lazy("users:google_oauth_redirect")
+        self.API_URI = reverse_lazy("users:google_oauth_callback")
         self.GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/auth"
         self.GOOGLE_ACCESS_TOKEN_OBTAIN_URL = "https://oauth2.googleapis.com/token"
         self.GOOGLE_USER_INFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -47,11 +50,11 @@ class GoogleRawLoginUseCase:
             "state": state,
             "access_type": "offline",
             "include_granted_scopes": "true",
-            "prompt": "select_account",
+            "prompt": "consent select_account",
         })
         return f"{self.GOOGLE_AUTH_URL}?{query_params}", state
 
-    def get_tokens(self, *, code: str) -> GoogleAccessTokens:
+    def get_tokens(self, *, code: str) -> GoogleTokensResponse:
         redirect_uri = self._get_redirect_uri()
         data = {
             "code": code,
@@ -62,11 +65,12 @@ class GoogleRawLoginUseCase:
         }
         response = requests.post(self.GOOGLE_ACCESS_TOKEN_OBTAIN_URL, data=data)
         if not response.ok:
-            raise "Failed to obtain access token from Google."
+            raise ErrorObtainingAccessToken
         tokens = response.json()
-        return GoogleAccessTokens(
+        return GoogleTokensResponse(
             id_token=tokens["id_token"],
-            access_token=tokens["access_token"]
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"]
         )
 
     def get_user_info(self, *, google_tokens: GoogleAccessTokens):
