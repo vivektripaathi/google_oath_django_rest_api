@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from dependency_injector.wiring import Provide
 
+from users.domain.use_cases.get_google_tokens_use_case import GetGoogleTokensUseCase
 from users.domain.use_cases.google_raw_login_use_case import GoogleRawLoginUseCase
 from users.exceptions import CSRFCheckFailedException, CodeOrStateNotFoundException, ErrorAuthenticatingUserWithGoogle
 from users.presentation.types import GoogleAuthCallbackRequest, GoogleAuthCallbackResponse
@@ -20,13 +21,11 @@ class GoogleAutView(APIView):
 
 
 class GoogleAuthCallbackView(APIView):
-    def get(
+    def _validate_request_and_state(
         self,
         request,
-        google_raw_login_use_case: GoogleRawLoginUseCase = Provide["google_raw_login_use_case"],
+        request_data: GoogleAuthCallbackRequest
     ):
-        request_data = GoogleAuthCallbackRequest.parse_obj(request.GET.dict())
-
         if request_data.error is not None:
             raise ErrorAuthenticatingUserWithGoogle
 
@@ -43,12 +42,14 @@ class GoogleAuthCallbackView(APIView):
         if request_data.state != session_state:
             raise CSRFCheckFailedException
 
-        google_tokens = google_raw_login_use_case.get_tokens(code=request_data.code)
+    def get(
+        self,
+        request,
+        get_google_tokens_use_case: GetGoogleTokensUseCase = Provide["get_google_tokens_use_case"],
+    ):
+        request_data = GoogleAuthCallbackRequest.parse_obj(request.GET.dict())
+        self._validate_request_and_state(request, request_data)
 
-        response = GoogleAuthCallbackResponse(
-            token_id = google_tokens.decode_id_token(),
-            user_info = google_raw_login_use_case.get_user_info(google_tokens=google_tokens),
-            access_token = google_tokens.access_token,
-            refresh_token = google_tokens.refresh_token,
-        )
-        return Response(response.dict_serialized(), status=status.HTTP_200_OK)
+        google_tokens = get_google_tokens_use_case.execute(code=request_data.code)
+
+        return Response(google_tokens.dict_serialized(), status=status.HTTP_200_OK)
