@@ -4,3 +4,6 @@ psycopg2-binary
 django-log-request-id
 djangorestframework
 dependency-injector
+orjson
+pydantic==1.10.2
+
