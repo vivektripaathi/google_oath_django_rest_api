@@ -25,12 +25,14 @@ env = environ.Env(
     DEBUG_SQL=(bool, False),
     ATOMIC_REQUESTS=(bool, True),
     GOOGLE_CLIENT_ID=(str, ""),
-    GOOGLE_CLIENT_SECRET=(str, "")
+    GOOGLE_CLIENT_SECRET=(str, ""),
+    APP_URL=(str, "http://127.0.0.1:8000")
 )
 env.read_env(os.path.join(BASE_DIR, ".env"))
 
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET")
+APP_URL = env("APP_URL")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/

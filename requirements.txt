@@ -6,4 +6,5 @@ djangorestframework
 dependency-injector
 orjson
 pydantic==1.10.2
-
+pyjwt
+attrs
